@@ -1,0 +1,23 @@
+{# Eingangsbestätigung – wird direkt nach der Anmeldung verschickt. Erste Zeile = Betreff. #}
+Betreff: {{ titel }}: Ihre Anmeldung für {{ bezirk.name }} ist eingegangen
+Guten Tag,
+
+vielen Dank für Ihre Anmeldung zum {{ titel }}! Wir haben folgende Angaben erhalten:
+
+Bezirk: {{ bezirk.name }}
+Straßen:
+{%- for s in bezirk.strassen %}
+  - {{ s }}
+{%- endfor %}
+
+Angemeldete Personen:
+{%- for p in personen %}
+  {{ loop.index }}. {{ p.name }}, Klasse {{ p.klasse }}, Tel. {{ p.telefon }}, {{ p.email }}
+{%- endfor %}
+
+Bitte beachten Sie: Das ist noch keine feste Zuteilung. Sobald das Organisationsteam Ihre Anmeldung geprüft hat, erhalten Sie eine weitere E-Mail mit der festen Zuteilung des Bezirks.
+
+Falls sich etwas ändert, antworten Sie einfach auf diese E-Mail.
+
+Mit freundlichen Grüßen
+Ihr Organisationsteam

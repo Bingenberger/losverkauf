@@ -1,0 +1,22 @@
+# Einstellungen für deploy/deploy.sh – kopieren nach deploy/deploy.conf und anpassen.
+# deploy.conf wird weder übertragen noch eingecheckt.
+
+# SSH-Ziel: Benutzer mit sudo-Rechten auf dem Server (SSH-Schlüssel empfohlen)
+SERVER=benutzer@server.example.de
+
+# Öffentliche Adresse. Der DNS-Eintrag muss VOR der Einrichtung auf den Server zeigen,
+# sonst kann certbot kein Zertifikat ausstellen.
+DOMAIN=lose.gsndk.de
+
+# Installationsverzeichnis, interner Port für Gunicorn, Name des systemd-Dienstes
+ZIEL=/opt/losverkauf
+PORT=5010
+DIENST=losverkauf
+
+# TLS: certbot = Let's-Encrypt-Zertifikat automatisch holen und verlängern
+#      keine   = kein Zertifikat einrichten (z. B. wenn es schon eines gibt – dann selbst in nginx eintragen)
+TLS=certbot
+CERTBOT_EMAIL=
+
+# ja = Neustart/Status/Log ohne sudo-Passwort erlauben (nur genau diese Befehle, über /etc/sudoers.d)
+SUDO_OHNE_PASSWORT=nein

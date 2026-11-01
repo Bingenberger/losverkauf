@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block body %}
+<main class="seite">
+  <h1>{{ titel }} – Verwaltung</h1>
+  <form method="post" class="login">
+    <label>Passwort <input type="password" name="pw" autofocus></label>
+    <button class="primaer">Anmelden</button>
+    {% if fehler %}<p class="fehler">{{ fehler }}</p>{% endif %}
+  </form>
+</main>
+{% endblock %}

@@ -1,0 +1,7 @@
+venv/
+data/
+losverkauf.env
+deploy/deploy.conf
+backups/
+__pycache__/
+static/bezirke.geojson

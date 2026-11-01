@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block bodyclass %}karte{% endblock %}
+{% block body %}
+<div id="karte-rahmen">
+  <div id="map" aria-label="Karte der Verkaufsbezirke"></div>
+  <div id="auswahl-leiste" hidden>
+    <div class="al-text">
+      <strong id="al-name"></strong>
+      <span id="al-status"></span>
+    </div>
+    <button type="button" id="al-eintragen" class="primaer klein">Anmelden</button>
+    <button type="button" id="al-schliessen" class="al-x" aria-label="Auswahl aufheben">×</button>
+  </div>
+</div>
+
+<aside id="panel">
+  <div id="uebersicht">
+    <header class="panel-kopf">
+      <h1>{{ titel }}</h1>
+      <p class="lead">Tippen Sie auf einen Bezirk, um ihn auf der Karte anzusehen. Mit „Anmelden“ melden Sie sich allein oder mit bis zu {{ max_personen - 1 }} weiteren Personen für den Losverkauf in diesem Bezirk an.</p>
+      <ul class="legende">
+        <li><i class="l l-leer"></i> noch niemand</li>
+        <li><i class="l l-teil"></i> noch Platz</li>
+        <li><i class="l l-voll"></i> voll</li>
+        <li><i class="l l-mein"></i> Ihr Bezirk</li>
+        <li><i class="l l-auswahl"></i> ausgewählt</li>
+      </ul>
+    </header>
+
+    <section id="eigene" hidden>
+      <h2>Ihre Anmeldungen</h2>
+      <p id="danke" class="danke" hidden>Vielen Dank! Sie erhalten in Kürze eine Eingangsbestätigung per E-Mail. Die feste Zuteilung bekommen Sie per E-Mail, sobald das Organisationsteam Ihre Anmeldung geprüft hat.</p>
+      <ul id="eigene-liste"></ul>
+    </section>
+
+    <section id="liste">
+      <h2>Alle Bezirke</h2>
+      <ul id="bezirk-liste"></ul>
+    </section>
+  </div>
+
+  <section id="detail" hidden>
+    <button class="zurueck" id="zurueck" type="button">← Zurück zur Übersicht</button>
+    <h2 id="d-name"></h2>
+    <p id="d-status" class="status"></p>
+    <ul id="d-strassen" class="strassen"></ul>
+
+    <form id="formular" autocomplete="on" data-max="{{ max_personen }}">
+      <p class="hint">Wer gemeinsam verkauft, meldet sich zusammen an (bis zu {{ max_personen }} Personen). Eine Anmeldung belegt einen Platz im Bezirk.</p>
+      <p class="hint">Sind für einen Bezirk mehrere Familien angemeldet, teilen wir per E-Mail Namen und E-Mail-Adressen der anderen mit, damit Sie sich über die Straßen absprechen können. Telefonnummern geben wir nicht weiter. Bitte sprechen Sie vorher mit den Personen, die Sie hier eintragen.</p>
+      <div id="personen"></div>
+      <button type="button" id="person-plus" class="plus">+ Weitere Person hinzufügen</button>
+      <button type="submit" class="primaer">Anmeldung absenden</button>
+      <p id="f-fehler" class="fehler" role="alert"></p>
+    </form>
+    <p id="d-voll" class="voll-hinweis" hidden>In diesem Bezirk sind alle Plätze belegt. Bitte wählen Sie einen orangen oder gelben Bezirk.</p>
+
+    <template id="person-vorlage">
+      <fieldset class="person">
+        <legend><span class="p-titel"></span></legend>
+        <button type="button" class="p-entfernen leise">entfernen</button>
+        <label>Name <input data-feld="name" required maxlength="80" placeholder="Vorname Nachname"></label>
+        <label><span class="p-klasse">Klasse Ihres Kindes</span> <input data-feld="klasse" required maxlength="10" placeholder="2b"></label>
+        <label>Telefonnummer <input data-feld="telefon" type="tel" required maxlength="30" placeholder="0228 123456"></label>
+        <label>E-Mail-Adresse <input data-feld="email" type="email" required maxlength="120" placeholder="name@beispiel.de"></label>
+      </fieldset>
+    </template>
+  </section>
+</aside>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% endblock %}

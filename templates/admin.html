@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% macro mailstatus(a, art, label) %}
+  {% set m = a.mails.get(art) %}
+  {% if m and m.ok %}<span class="mail ok" title="{{ m.empfaenger }}">✓ {{ label }} {{ m.zeit|datum }}</span>
+  {% elif m %}<span class="mail fehler" title="{{ m.fehler }}">✗ {{ label }}: {{ m.fehler }}</span>
+  {% else %}<span class="mail keine">– {{ label }}</span>{% endif %}
+{% endmacro %}
+
+{% macro anmeldung_zeile(a, bezirke, namen, mit_bezirk=false) %}
+<article class="anmeldung {{ 'ist-bestaetigt' if a.status == 'bestaetigt' else 'ist-offen' }}">
+  <div class="a-kopf">
+    {% if a.status == 'bestaetigt' %}<span class="badge badge-ok">bestätigt {{ a.bestaetigt_at|datum }}</span>
+    {% else %}<span class="badge badge-offen">offen</span>{% endif %}
+    {% if mit_bezirk %}<a href="#{{ a.bezirk_id }}"><strong>{{ namen.get(a.bezirk_id, a.bezirk_id) }}</strong></a>{% endif %}
+    <small>Nr. {{ a.id }} · angemeldet {{ a.created_at|datum }}{% if a.von_admin %} · manuell{% endif %}</small>
+  </div>
+  <table class="personen">
+    {% for p in a.personen %}
+    <tr><td>{{ p.name }}</td><td>{{ p.klasse }}</td><td>{{ p.telefon }}</td>
+        <td>{% if p.email %}<a href="mailto:{{ p.email }}">{{ p.email }}</a>{% endif %}</td></tr>
+    {% endfor %}
+  </table>
+  <div class="a-mails">{{ mailstatus(a, 'eingang', 'Eingang') }} {{ mailstatus(a, 'zuteilung', 'Zuteilung') }}
+    {%- if a.mails.get('absprache') %} {{ mailstatus(a, 'absprache', 'Absprache') }}{% endif %}</div>
+  <div class="a-aktionen">
+    {% if a.status == 'offen' %}
+    <form method="post" action="{{ url_for('admin_bestaetigen', aid=a.id) }}">
+      <button class="knopf-ok">Bestätigen &amp; Zuteilung mailen</button>
+    </form>
+    {% else %}
+    <form method="post" action="{{ url_for('admin_mail_erneut', aid=a.id, art='zuteilung') }}">
+      <button class="leise">Zuteilung erneut mailen</button>
+    </form>
+    {% endif %}
+    {% if not a.mails.get('eingang', {}).get('ok') %}
+    <form method="post" action="{{ url_for('admin_mail_erneut', aid=a.id, art='eingang') }}">
+      <button class="leise">Eingangsbestätigung mailen</button>
+    </form>
+    {% endif %}
+    <form method="post" action="{{ url_for('admin_verschieben', aid=a.id) }}">
+      <select name="bezirk_id" onchange="if (this.value) this.form.submit()" aria-label="Verschieben nach">
+        <option value="">verschieben …</option>
+        {% for o in bezirke if o.id != a.bezirk_id %}<option value="{{ o.id }}">{{ o.name }} ({{ o.anzahl }}/{{ o.max_effektiv }})</option>{% endfor %}
+      </select>
+    </form>
+    <form method="post" action="{{ url_for('admin_loeschen', aid=a.id) }}" onsubmit="return confirm('Anmeldung Nr. {{ a.id }} wirklich löschen?')">
+      <button class="leise gefahr">löschen</button>
+    </form>
+  </div>
+</article>
+{% endmacro %}
+
+{% block body %}
+<main class="seite admin">
+  <header class="admin-kopf">
+    <h1>{{ titel }} – Verwaltung</h1>
+    <p class="kennzahlen">
+      <span><strong>{{ gesamt }}</strong> {{ 'Anmeldung' if gesamt == 1 else 'Anmeldungen' }}</span>
+      <span class="{{ 'warn' if unbestaetigt }}"><strong>{{ unbestaetigt|length }}</strong> noch zu bestätigen</span>
+      <span><strong>{{ gesamt - unbestaetigt|length }}</strong> bestätigt</span>
+      <span><strong>{{ ohne|length }}</strong> von {{ bezirke|length }} Bezirken ohne Anmeldung</span>
+    </p>
+    <p class="aktionen">
+      <a href="{{ url_for('admin_pdf') }}">PDF-Liste (alle)</a>
+      <a href="{{ url_for('admin_pdf', nur='bestaetigt') }}">PDF-Liste (nur bestätigte)</a>
+      <a href="{{ url_for('admin_export') }}">CSV exportieren</a>
+      <a href="{{ url_for('index') }}" target="_blank">Elternansicht</a>
+      <a href="{{ url_for('admin_logout') }}">Abmelden</a>
+    </p>
+    <p class="elternlink">Elternlink: <code>{{ eltern_link }}</code></p>
+    {% if mail_test %}
+    <p class="hinweis-box">Mailversand im <strong>Testbetrieb</strong>: Es ist kein SMTP-Server eingerichtet. Mails werden nicht verschickt, sondern nur als Datei unter <code>data/mails/</code> abgelegt.</p>
+    {% endif %}
+  </header>
+
+  {% for kategorie, text in get_flashed_messages(with_categories=true) %}
+  <p class="meldung meldung-{{ kategorie }}" role="status">{{ text }}</p>
+  {% endfor %}
+
+  <details class="mailversand" id="mailversand">
+    <summary>Mailversand prüfen / Test-Mail senden</summary>
+    {% set m = mail_einstellungen %}
+    <table class="einstellungen">
+      <tr><th>SMTP-Server</th><td>{% if m.host %}{{ m.host }}:{{ m.port }} ({{ m.sicherheit }}){% else %}<em>nicht eingerichtet – Testbetrieb</em>{% endif %}</td></tr>
+      <tr><th>Benutzer</th><td>{{ m.user or '–' }}{% if m.user %} · Passwort {{ 'gesetzt' if m.passwort_gesetzt else 'fehlt' }}{% endif %}</td></tr>
+      <tr><th>Absender</th><td>{{ m.absender }}</td></tr>
+      <tr><th>Antwort an</th><td>{{ m.antwort_an or '–' }}</td></tr>
+    </table>
+    <form method="post" action="{{ url_for('admin_testmail') }}" class="inline">
+      <input name="an" type="email" required placeholder="empfaenger@example.de" size="30" aria-label="Empfänger der Test-Mail">
+      <button>Test-Mail senden</button>
+    </form>
+    <p class="leise-text">Einstellungen ändern: <code>losverkauf.env</code> auf dem Server bearbeiten, danach den Dienst neu starten.</p>
+  </details>
+
+  {% if unbestaetigt %}
+  <section class="block">
+    <h2>Noch zu bestätigen ({{ unbestaetigt|length }})</h2>
+    {% for a in unbestaetigt %}{{ anmeldung_zeile(a, bezirke, namen, true) }}{% endfor %}
+  </section>
+  {% endif %}
+
+  {% if ohne %}
+  <section class="offen">
+    <h2>Bezirke ohne Anmeldung</h2>
+    <p>{% for b in ohne %}<a href="#{{ b.id }}">{{ b.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</p>
+  </section>
+  {% endif %}
+
+  <h2 class="abschnitt">Alle Bezirke</h2>
+  {% for b in bezirke %}
+  <section class="bezirk" id="{{ b.id }}">
+    <h2>{{ b.name }}
+      <span class="zaehler {{ 'z-leer' if b.anzahl == 0 else ('z-voll' if b.frei == 0 else 'z-teil') }}">{{ b.anzahl }} / {{ b.max_effektiv }}</span>
+      {% if b.anzahl %}<small class="leise-text">{{ b.bestaetigt }} bestätigt</small>{% endif %}
+      {% if b.gesperrt %}<span class="gesperrt">gesperrt</span>{% endif %}
+    </h2>
+    <p class="strassen-zeile">{{ b.strassen|join(', ') }}</p>
+
+    {% for a in b.anmeldungen %}{{ anmeldung_zeile(a, bezirke, namen) }}{% endfor %}
+
+    {% if b.anmeldungen %}
+    <form method="post" action="{{ url_for('admin_absprache', bid=b.id) }}" class="inline absprache"
+          onsubmit="return confirm('Absprache-Mail an alle Angemeldeten in {{ b.name }} verschicken? Namen und E-Mail-Adressen werden dabei untereinander bekannt.')">
+      <button>Absprache-Mail an den Bezirk</button>
+      <label><input type="checkbox" name="auch_offene"> auch noch nicht bestätigte Anmeldungen</label>
+      <span class="leise-text">Alle sehen Namen und E-Mail-Adressen der anderen – Telefonnummern werden nicht weitergegeben.</span>
+    </form>
+    {% endif %}
+
+    <details>
+      <summary>Manuell anmelden / Bezirk einstellen</summary>
+      <form method="post" action="{{ url_for('admin_anmeldung_neu') }}" class="manuell">
+        <input type="hidden" name="bezirk_id" value="{{ b.id }}">
+        {% for i in range(1, max_personen + 1) %}
+        <div class="zeile">
+          <span>Person {{ i }}</span>
+          <input name="name{{ i }}" placeholder="Name" {% if i == 1 %}required{% endif %}>
+          <input name="klasse{{ i }}" placeholder="Klasse" size="4">
+          <input name="telefon{{ i }}" type="tel" placeholder="Telefon">
+          <input name="email{{ i }}" type="email" placeholder="E-Mail">
+        </div>
+        {% endfor %}
+        <button>Anmeldung anlegen</button>
+      </form>
+      <form method="post" action="{{ url_for('admin_bezirk', bid=b.id) }}" class="inline">
+        <label>Max. Anmeldungen <input name="max_override" type="number" min="0" size="3" value="{{ b.max_effektiv }}"></label>
+        <label><input type="checkbox" name="gesperrt" {% if b.gesperrt %}checked{% endif %}> für Eltern sperren</label>
+        <button>Speichern</button>
+      </form>
+    </details>
+  </section>
+  {% endfor %}
+</main>
+<script>
+  // Nach "Test-Mail senden" den Bereich mit dem Ergebnis geöffnet zeigen
+  if (location.hash === "#mailversand") document.getElementById("mailversand").open = true;
+</script>
+{% endblock %}

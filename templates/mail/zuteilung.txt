@@ -1,0 +1,27 @@
+{# Feste Zuteilung – wird verschickt, wenn die Anmeldung in /admin bestätigt wird. Erste Zeile = Betreff. #}
+Betreff: {{ titel }}: Feste Zuteilung – {{ bezirk.name }}
+Guten Tag,
+
+Ihre Anmeldung ist bestätigt. Folgender Bezirk ist Ihnen fest zugeteilt:
+
+{{ bezirk.name }}
+Straßen:
+{%- for s in bezirk.strassen %}
+  - {{ s }}
+{%- endfor %}
+
+{% if personen|length > 1 -%}
+Sie verkaufen gemeinsam:
+{%- else -%}
+Verkäufer/in:
+{%- endif %}
+{%- for p in personen %}
+  - {{ p.name }}, Klasse {{ p.klasse }}{% if p.telefon %}, Tel. {{ p.telefon }}{% endif %}{% if p.email %}, {{ p.email }}{% endif %}
+{%- endfor %}
+
+Weitere Informationen zur Ausgabe der Lose und zur Abrechnung erhalten Sie rechtzeitig vor dem Martinszug.
+
+Vielen Dank für Ihre Unterstützung!
+
+Mit freundlichen Grüßen
+Ihr Organisationsteam

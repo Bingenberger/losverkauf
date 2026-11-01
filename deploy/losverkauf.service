@@ -1,0 +1,29 @@
+# systemd-Dienst – wird von server-einrichten.sh nach /etc/systemd/system/@DIENST@.service geschrieben
+# (Platzhalter @…@ werden dabei ersetzt).
+[Unit]
+Description=Losverkauf St. Martin (Flask/Gunicorn)
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=@ZIEL@
+EnvironmentFile=@ZIEL@/losverkauf.env
+Environment=TZ=Europe/Berlin
+# Nur lokal erreichbar – von außen geht es ausschließlich über nginx.
+# --threads: Mails werden nach der Anmeldung im Hintergrund verschickt.
+ExecStart=@ZIEL@/venv/bin/gunicorn --workers 2 --threads 4 --bind 127.0.0.1:@PORT@ app:app
+Restart=on-failure
+RestartSec=3
+# Neue Dateien (Datenbank, abgelegte Mails) nicht für alle lesbar
+UMask=0027
+
+# Härtung: nur data/ ist beschreibbar
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=@ZIEL@/data
+
+[Install]
+WantedBy=multi-user.target

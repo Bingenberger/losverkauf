@@ -1,0 +1,207 @@
+{
+  "gemeinde": "Niederkassel",
+  "hinweis": "Straßennamen exakt wie in OpenStreetMap schreiben (z. B. 'Kölner Straße', nicht 'Kölnerstraße'). 'ortsteil' = Ortsteilgrenze aus OSM; nur Straßen darin werden verwendet. Nur einen Teil einer Straße: {\"name\": \"Hauptstraße\", \"von\": \"Weidenstraße\", \"bis\": \"Pastor-Grimm-Straße\"} (Abschnitt zwischen zwei Querstraßen; statt einer Querstraße geht auch \"Bahn\"). Optional \"zusatz\" für die Anzeige, z. B. \"südliche Seite\".",
+  "bezirke": [
+    {
+      "id": "B01",
+      "name": "Bezirk 1&2",
+      "ortsteil": "Niederkassel",
+      "max": 5,
+      "strassen": [
+        {"name": "Gladiolenweg", "von": "Spicher Straße", "bis": "Elisabethstraße"},
+        "Kastanienweg",
+        "Tulpenweg",
+        "Erlenweg",
+        "Oleanderweg",
+        "Sanddornstraße",
+        "Lavendelweg",
+        {"name": "Kölner Straße", "von": "Spicher Straße", "bis": "Weidenstraße"},
+        "Eschenweg",
+        "Siebengebirgsstraße",
+        {"name": "Weidenstraße", "von": "Bahn", "bis": "Gladiolenweg"},
+        "Elisabethstraße",
+        "Sophienweg",
+        "Katharinenweg",
+        "Luisenweg",
+        "Augustaweg",
+        "Cäcilienweg",
+        "Viktoriaweg",
+        "Mariengrund"
+      ]
+    },
+    {
+      "id": "B03",
+      "name": "Bezirk 3",
+      "ortsteil": "Niederkassel",
+      "max": 3,
+      "strassen": [
+        {"name": "Hauptstraße", "von": "Spicher Straße", "bis": "Weidenstraße"},
+        {"name": "Spicher Straße", "von": "Hauptstraße", "bis": "Kölner Straße"},
+        "Meisenweg",
+        "Blankenbergweg",
+        {"name": "Weidenstraße", "von": "Hauptstraße", "bis": "Bahn"},
+        "Monsignore-Winter-Weg",
+        {"name": "Rathausstraße", "von": "Nießengasse", "bis": "Roncallistraße"},
+        "Pastor-Grimm-Straße",
+        "Annostraße",
+        "Roncallistraße",
+        "Martin-Buber-Straße"
+      ]
+    },
+    {
+      "id": "B04",
+      "name": "Bezirk 4",
+      "ortsteil": "Niederkassel",
+      "max": 3,
+      "strassen": [
+        {"name": "Rosenstraße", "von": "Schellenberg", "bis": "Spicher Straße"},
+        {"name": "Schellenberg", "von": "Hauptstraße", "bis": "Rosenstraße"},
+        "Poststraße",
+        "Raiffeisenstraße",
+        {"name": "Hauptstraße", "von": "Schellenberg", "bis": "Spicher Straße"},
+        "Rathausplatz",
+        "Nießengasse",
+        {"name": "Rathausstraße", "von": "Bergstraße", "bis": "Nießengasse"},
+        "Rheinwerft",
+        "Roteiser Hof",
+        "Magnolienweg",
+        "Hedwig-Dohm-Straße"
+      ]
+    },
+    {
+      "id": "B05",
+      "name": "Bezirk 5",
+      "ortsteil": "Niederkassel",
+      "max": 3,
+      "strassen": [
+        {"name": "Rosenstraße", "von": "Bergstraße", "bis": "Schellenberg"},
+        {"name": "Bergstraße", "von": "Rathausstraße", "bis": "Rosenstraße"},
+        {"name": "Hauptstraße", "von": "Bergstraße", "bis": "Schellenberg"},
+        "Dahlienweg",
+        {"name": "Rathausstraße", "von": "Waldstraße", "bis": "Bergstraße"},
+        "Schlehenweg",
+        "In den Schnittlingen",
+        "Holunderweg",
+        "Steinweg",
+        "Römerweg",
+        "Rheingasse"
+      ]
+    },
+    {
+      "id": "B06",
+      "name": "Bezirk 6",
+      "ortsteil": "Niederkassel",
+      "max": 3,
+      "strassen": [
+        {"name": "Hauptstraße", "von": "Waldstraße", "bis": "Bergstraße"},
+        {"name": "Waldstraße", "von": "Rathausstraße", "bis": "Hauptstraße"},
+        "Coburger Weg",
+        "Bayreuther Weg",
+        "Bamberger Weg",
+        "Kanalweg",
+        "Nelkenweg",
+        "Martin-Luther-Straße",
+        {"name": "Rathausstraße", "von": "Kanalweg", "bis": "Waldstraße", "zusatz": "ab Sankt-Josef-Plätzchen"}
+      ]
+    },
+    {
+      "id": "B07",
+      "name": "Bezirk 7",
+      "ortsteil": "Niederkassel",
+      "max": 3,
+      "strassen": [
+        "Espenweg",
+        "Eichenweg",
+        "Buchenweg",
+        {"name": "Kölner Straße", "von": "Waldstraße", "bis": "Bergstraße"},
+        "Platanenweg",
+        "Sebastianstraße",
+        "Matthäusstraße",
+        {"name": "Bergstraße", "von": "Rosenstraße", "bis": "Kölner Straße"},
+        "Auf dem Sand",
+        {"name": "Waldstraße", "von": "Hauptstraße", "bis": "Pappelweg"}
+      ]
+    },
+    {
+      "id": "B08",
+      "name": "Bezirk 8",
+      "ortsteil": "Niederkassel",
+      "max": 3,
+      "strassen": [
+        "Pappelweg",
+        "Birkenweg",
+        "Lindenstraße",
+        {"name": "Bergstraße", "von": "Kölner Straße", "bis": "Lupinenstraße"},
+        "Anemonenweg",
+        "Eibenweg",
+        {"name": "Kölner Straße", "von": "Bergstraße", "bis": "Schellenberg"}
+      ]
+    },
+    {
+      "id": "B09",
+      "name": "Bezirk 9",
+      "ortsteil": "Niederkassel",
+      "max": 3,
+      "strassen": [
+        {"name": "Lupinenstraße", "von": "Anemonenweg", "bis": "Schellenberg"},
+        {"name": "Schellenberg", "von": "Rosenstraße", "bis": "Lupinenstraße"},
+        "Wiesenweg",
+        "Ulmenstraße",
+        "Glockenstraße",
+        {"name": "Kölner Straße", "von": "Schellenberg", "bis": "Spicher Straße"},
+        "Asternweg"
+      ]
+    },
+    {
+      "id": "B10",
+      "name": "Bezirk 10",
+      "ortsteil": "Niederkassel",
+      "max": 3,
+      "strassen": [
+        "Carl-Zeiss-Straße",
+        "Otto-Hahn-Straße",
+        "Fliederweg",
+        "Ginsterweg",
+        "Heinrich-von-Stephan-Straße",
+        {"name": "Spicher Straße", "von": "Kölner Straße", "bis": "Ginsterweg", "zusatz": "bis Sportplatz"},
+        "Ahornstraße",
+        {"name": "Lupinenstraße", "von": "Schellenberg", "bis": "Spicher Straße"}
+      ]
+    },
+    {
+      "id": "B11",
+      "name": "Bezirk 11 (Uckendorf Süd)",
+      "ortsteil": "Uckendorf",
+      "max": 3,
+      "strassen": [
+        {"name": "Niederkasseler Straße", "zusatz": "südliche Seite"},
+        "Cassiusweg",
+        "Drachenfelsweg",
+        "Gartenweg",
+        "Im Gäßchen",
+        "Kirchweg",
+        "Ölbergweg",
+        "Stockemer Straße",
+        "Heerstraße",
+        "Eschmarer Straße",
+        "Kriegsdorfer Weg"
+      ]
+    },
+    {
+      "id": "B12",
+      "name": "Bezirk 12 (Uckendorf Nord)",
+      "ortsteil": "Uckendorf",
+      "max": 3,
+      "strassen": [
+        {"name": "Niederkasseler Straße", "zusatz": "nördliche Seite"},
+        "Adalbertstraße",
+        "Arminstraße",
+        "Elisenstraße",
+        "Holsteinstraße",
+        "Schäferstraße",
+        "Weiler Weg",
+        "Liburer Weg"
+      ]
+    }
+  ]
+}

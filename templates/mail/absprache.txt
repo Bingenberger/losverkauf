@@ -1,0 +1,27 @@
+{# Absprache-Mail: geht an alle Angemeldeten eines Bezirks, damit sie sich untereinander abstimmen können.
+   Enthält bewusst KEINE Telefonnummern. Erste Zeile = Betreff. #}
+Betreff: {{ titel }}: Absprache in {{ bezirk.name }}
+Guten Tag,
+
+für {{ bezirk.name }} sind mehrere Familien zum Losverkauf angemeldet. Damit Sie sich untereinander absprechen können, wer welche Straßen übernimmt, finden Sie unten alle Beteiligten. Diese E-Mail geht an alle Genannten, Sie können also einfach auf „Allen antworten“ klicken.
+
+Straßen im Bezirk:
+{%- for s in bezirk.strassen %}
+  - {{ s }}
+{%- endfor %}
+
+Angemeldet:
+{%- for a in anmeldungen %}
+
+  {{ loop.index }}. {% for p in a.personen %}{{ p.name }}{% if not loop.last %}, {% endif %}{% endfor %}
+{%- for p in a.personen %}{% if p.email %}
+     {{ p.name }}: {{ p.email }}
+{%- endif %}{% endfor %}
+{%- endfor %}
+
+Weitergegeben werden nur Namen und E-Mail-Adressen. Telefonnummern bleiben beim Organisationsteam.
+
+Bei Fragen antworten Sie gern auf diese E-Mail.
+
+Mit freundlichen Grüßen
+Ihr Organisationsteam

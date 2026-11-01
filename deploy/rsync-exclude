@@ -1,0 +1,12 @@
+# Wird von deploy.sh nicht übertragen – und auf dem Server auch nicht gelöscht
+/.git/
+/venv/
+/data/
+/backups/
+/losverkauf.env
+/deploy/deploy.conf
+/Bezirke.pdf
+/.claude/
+__pycache__/
+*.pyc
+.DS_Store
