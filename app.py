@@ -38,6 +38,7 @@ app.config.update(SESSION_COOKIE_SAMESITE="Lax", SESSION_COOKIE_HTTPONLY=True,
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 ELTERN_TOKEN = os.environ.get("ELTERN_TOKEN", "")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "")
 DB_PATH = Path(os.environ.get("DB_PATH", BASE / "data" / "losverkauf.db"))
 TITEL = os.environ.get("TITEL", "Losverkauf St. Martin")
 GEOJSON = BASE / "static" / "bezirke.geojson"
@@ -240,7 +241,7 @@ def eltern_zugang():
 def admin_required(fn):
     @wraps(fn)
     def wrapper(*a, **kw):
-        if not session.get("admin"):
+        if not ADMIN_USERNAME or session.get("admin_identity") != ADMIN_USERNAME:
             return redirect(url_for("admin_login", next=request.path))
         return fn(*a, **kw)
     return wrapper
@@ -345,17 +346,21 @@ def api_anmeldung_loeschen(token):
 def admin_login():
     fehler = None
     if request.method == "POST":
-        if ADMIN_PASSWORD and secrets.compare_digest(request.form.get("pw", ""), ADMIN_PASSWORD):
+        if (ADMIN_USERNAME and ADMIN_PASSWORD
+                and secrets.compare_digest(request.form.get("username", ""), ADMIN_USERNAME)
+                and secrets.compare_digest(request.form.get("pw", ""), ADMIN_PASSWORD)):
             session["admin"] = True
+            session["admin_identity"] = ADMIN_USERNAME
             ziel = request.args.get("next", "")
             return redirect(ziel if ziel.startswith("/") and not ziel.startswith("//") else url_for("admin"))
-        fehler = "Passwort falsch."
+        fehler = "Anmeldedaten falsch."
     return render_template("login.html", titel=TITEL, fehler=fehler)
 
 
 @app.route("/admin/logout")
 def admin_logout():
     session.pop("admin", None)
+    session.pop("admin_identity", None)
     return redirect(url_for("admin_login"))
 
 
