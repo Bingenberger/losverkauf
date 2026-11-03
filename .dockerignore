@@ -1,0 +1,16 @@
+*
+!requirements.lock
+!requirements-test.lock
+!app.py
+!mail.py
+!los_runtime.py
+!los_migrate.py
+!los_worker.py
+!gunicorn.conf.py
+!templates/
+!templates/**
+!static/
+!static/**
+!tests/
+!tests/**
+static/bezirke.geojson

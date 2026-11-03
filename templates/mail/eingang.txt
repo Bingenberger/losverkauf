@@ -21,3 +21,5 @@ Falls sich etwas ändert, antworten Sie einfach auf diese E-Mail.
 
 Mit freundlichen Grüßen
 Ihr Organisationsteam
+
+Mein Zugang: {{ parent_link }}&edit={{ anmeldung.edit_token }}

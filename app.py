@@ -12,6 +12,7 @@ Umgebungsvariablen (siehe deploy/losverkauf.env.example):
   SMTP_…, MAIL_…  Mailversand, siehe mail.py
 """
 import csv
+from html import escape
 import io
 import json
 import os
@@ -26,22 +27,37 @@ from pathlib import Path
 from flask import (Flask, abort, flash, g, jsonify, make_response, redirect,
                    render_template, request, session, url_for)
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.security import check_password_hash
+from urllib.parse import quote
+import los_runtime
 
 import mail
 
 BASE = Path(__file__).parent
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
+app.secret_key = los_runtime.required("SECRET_KEY")
+BASE_URL = los_runtime.origin()
 app.config.update(SESSION_COOKIE_SAMESITE="Lax", SESSION_COOKIE_HTTPONLY=True,
-                  SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE") == "1")
+                  SESSION_COOKIE_SECURE=BASE_URL.startswith("https://") or os.environ.get("SESSION_COOKIE_SECURE") == "1")
 # Hinter nginx: Schema und Host aus den X-Forwarded-Headern übernehmen (Gunicorn lauscht nur auf 127.0.0.1)
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
-ELTERN_TOKEN = os.environ.get("ELTERN_TOKEN", "")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
-ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "")
+_original_wsgi = app.wsgi_app
+_trusted = los_runtime.trusted_ips()
+_proxy_wsgi = ProxyFix(_original_wsgi, x_for=1, x_proto=1, x_host=0)
+def trusted_wsgi(environ, start_response):
+    target = _proxy_wsgi if environ.get("REMOTE_ADDR") in _trusted else _original_wsgi
+    return target(environ, start_response)
+app.wsgi_app = trusted_wsgi
+ELTERN_TOKEN = los_runtime.required("ELTERN_TOKEN")
+ADMIN_PASSWORD = los_runtime.value("ADMIN_PASSWORD")
+ADMIN_PASSWORD_HASH = los_runtime.value("ADMIN_PASSWORD_HASH")
+ADMIN_USERNAME = los_runtime.value("ADMIN_USERNAME")
 DB_PATH = Path(os.environ.get("DB_PATH", BASE / "data" / "losverkauf.db"))
 TITEL = os.environ.get("TITEL", "Losverkauf St. Martin")
-GEOJSON = BASE / "static" / "bezirke.geojson"
+GEOJSON = Path(os.environ.get("GEOJSON_PATH", BASE / "static" / "bezirke.geojson"))
+TILE_URL = os.environ.get("TILE_URL", "")
+if TILE_URL and not TILE_URL.startswith("/"):
+    raise RuntimeError("TILE_URL must use a configured same-origin tile service")
+_pdf_slot = threading.BoundedSemaphore(1)
 MAX_PERSONEN = 3
 
 SCHEMA = """
@@ -94,35 +110,28 @@ def datum(iso: str | None) -> str:
 
 # ---------- DB ----------
 def migrieren(con):
-    """Ältere Datenbanken: Tabelle 'wuensche' (eine Person + Team-Text je Eintrag) → 'anmeldungen' + 'personen'."""
+    """Known legacy conversion, only inside the explicit migration transaction."""
     if not con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='wuensche'").fetchone():
         return
-    try:
-        con.execute("BEGIN IMMEDIATE")
-        for r in map(dict, con.execute("SELECT * FROM wuensche").fetchall()):
-            kontakt = r.get("kontakt") or ""
-            telefon = r.get("telefon") or ("" if "@" in kontakt or kontakt == "–" else kontakt)
-            email = r.get("email") or (kontakt if "@" in kontakt else "")
-            aid = con.execute("INSERT INTO anmeldungen (bezirk_id,edit_token,created_at,von_admin) VALUES (?,?,?,?)",
-                              (r["bezirk_id"], r["edit_token"], r["created_at"], r.get("von_admin") or 0)).lastrowid
-            con.execute("INSERT INTO personen (anmeldung_id,pos,name,klasse,telefon,email) VALUES (?,1,?,?,?,?)",
-                        (aid, r["name"], r["klasse"], telefon, email))
-            if r.get("team"):
-                con.execute("INSERT INTO personen (anmeldung_id,pos,name) VALUES (?,2,?)", (aid, r["team"]))
-        con.execute("DROP TABLE wuensche")
-        con.commit()
-    except sqlite3.OperationalError:
-        con.rollback()  # läuft gerade in einem anderen Worker
+    for r in map(dict, con.execute("SELECT * FROM wuensche").fetchall()):
+        kontakt = r.get("kontakt") or ""
+        telefon = r.get("telefon") or ("" if "@" in kontakt or kontakt == "–" else kontakt)
+        email = r.get("email") or (kontakt if "@" in kontakt else "")
+        aid = r["id"]
+        con.execute("INSERT INTO anmeldungen (id,bezirk_id,edit_token,created_at,von_admin) VALUES (?,?,?,?,?)",
+                    (aid,r["bezirk_id"],r["edit_token"],r["created_at"],r.get("von_admin") or 0))
+        con.execute("INSERT INTO personen (anmeldung_id,pos,name,klasse,telefon,email) VALUES (?,1,?,?,?,?)",
+                    (aid,r["name"],r["klasse"],telefon,email))
+        if r.get("team"):
+            con.execute("INSERT INTO personen (anmeldung_id,pos,name) VALUES (?,2,?)",(aid,r["team"]))
+    con.execute("DROP TABLE wuensche")
 
 
 def db():
     if "db" not in g:
-        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-        g.db = sqlite3.connect(DB_PATH, timeout=10)
+        g.db = sqlite3.connect(DB_PATH.resolve().as_uri() + "?mode=rw", uri=True, timeout=10)
         g.db.row_factory = sqlite3.Row
         g.db.execute("PRAGMA foreign_keys = ON")
-        g.db.executescript(SCHEMA)
-        migrieren(g.db)
     return g.db
 
 
@@ -134,9 +143,7 @@ def close_db(_):
 
 
 def load_geojson():
-    if not GEOJSON.exists():
-        return {"type": "FeatureCollection", "features": []}
-    return json.loads(GEOJSON.read_text(encoding="utf-8"))
+    return los_runtime.geojson(GEOJSON)
 
 
 def bezirke_mit_status():
@@ -221,17 +228,8 @@ def mail_absprache(bid: str, auch_offene: bool) -> tuple[str | None, int]:
     return fehler, len(empfaenger)
 
 
-def im_hintergrund(fn, *args):
-    def lauf():
-        with app.app_context():
-            fn(*args)
-    threading.Thread(target=lauf, daemon=True).start()
-
-
 # ---------- Zugang ----------
 def eltern_zugang():
-    if not ELTERN_TOKEN:
-        return True  # Entwicklungsmodus ohne Token
     t = request.args.get("t")
     if t and secrets.compare_digest(t, ELTERN_TOKEN):
         session["eltern"] = True
@@ -249,8 +247,67 @@ def admin_required(fn):
 
 @app.route("/healthz")
 def healthz():
-    db().execute("SELECT 1")
-    return "ok", 200, {"Content-Type": "text/plain; charset=utf-8"}
+    healthy = los_runtime.ready(DB_PATH, GEOJSON)
+    return jsonify({"status": "ready" if healthy else "migration-or-map-required"}), 200 if healthy else 503
+
+
+
+def csrf_token():
+    if "_csrf" not in session:
+        session["_csrf"] = secrets.token_urlsafe(32)
+    return session["_csrf"]
+
+@app.context_processor
+def runtime_context():
+    return {"csrf_token": csrf_token, "tile_url": TILE_URL, "parent_link": BASE_URL + "/?t=" + quote(ELTERN_TOKEN, safe="")}
+
+@app.before_request
+def contract_guard():
+    if request.endpoint in ("healthz", "liveness"):
+        return
+    if not los_runtime.ready(DB_PATH, GEOJSON):
+        return jsonify({"status": "migration-or-map-required"}), 503
+    if request.method not in ("GET", "HEAD", "OPTIONS"):
+        submitted = request.headers.get("X-CSRF-Token") or request.form.get("csrf_token", "")
+        expected = session.get("_csrf")
+        if not expected or not submitted or not secrets.compare_digest(expected, submitted):
+            abort(403)
+        if request.headers.get("Origin") and request.headers["Origin"] != BASE_URL:
+            abort(403)
+
+@app.after_request
+def private_responses(response):
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+@app.route("/health/live")
+def liveness():
+    return jsonify({"status": "live"})
+
+app.add_url_rule("/health/ready", view_func=healthz)
+
+def bounded_pdf(fn):
+    @wraps(fn)
+    def wrapped(*args, **kwargs):
+        if not _pdf_slot.acquire(blocking=False):
+            return "PDF-Export belegt", 503, {"Retry-After": "5"}
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            _pdf_slot.release()
+    return wrapped
+
+
+
+@app.errorhandler(Exception)
+def safe_failure(error):
+    from werkzeug.exceptions import HTTPException
+    if isinstance(error, HTTPException):
+        return error
+    app.logger.error("Application operation failed (%s)", type(error).__name__)
+    return jsonify({"fehler": "Die Anfrage konnte nicht verarbeitet werden. Bitte später erneut versuchen."}), 503
 
 
 # ---------- Eltern ----------
@@ -258,8 +315,13 @@ def healthz():
 def index():
     if not eltern_zugang():
         return render_template("gesperrt.html", titel=TITEL), 403
-    if request.args.get("t"):
-        return redirect(url_for("index"))  # Token aus der URL entfernen
+    edit = request.args.get("edit", "")
+    if edit and len(edit) <= 128 and db().execute("SELECT 1 FROM anmeldungen WHERE edit_token=?", (edit,)).fetchone():
+        mine = session.get("meine", [])
+        if edit not in mine:
+            session["meine"] = (mine + [edit])[-40:]
+    if request.args.get("t") or edit:
+        return redirect(url_for("index"))  # Capabilities leave the address bar immediately
     return render_template("index.html", titel=TITEL, max_personen=MAX_PERSONEN)
 
 
@@ -320,9 +382,10 @@ def api_anmeldung():
     for pos, p in enumerate(personen, 1):
         con.execute("INSERT INTO personen (anmeldung_id,pos,name,klasse,telefon,email) VALUES (?,?,?,?,?,?)",
                     (aid, pos, p["name"], p["klasse"], p["telefon"], p["email"]))
+    from los_worker import enqueue
+    enqueue(con, aid, "eingang")
     con.commit()
     session["meine"] = session.get("meine", []) + [token]
-    im_hintergrund(mail_senden, aid, "eingang")
     return jsonify({"ok": True, "edit_token": token})
 
 
@@ -336,6 +399,7 @@ def api_anmeldung_loeschen(token):
     if a and a["status"] == "bestaetigt":
         return jsonify({"fehler": "Ihre Anmeldung ist bereits fest zugeteilt. Bitte antworten Sie auf die "
                                   "Zuteilungs-E-Mail, wenn Sie absagen möchten."}), 409
+    db().execute("DELETE FROM mail_log WHERE anmeldung_id IN (SELECT id FROM anmeldungen WHERE edit_token=?)", (token,))
     db().execute("DELETE FROM anmeldungen WHERE edit_token=?", (token,))
     db().commit()
     return jsonify({"ok": True})
@@ -346,9 +410,11 @@ def api_anmeldung_loeschen(token):
 def admin_login():
     fehler = None
     if request.method == "POST":
-        if (ADMIN_USERNAME and ADMIN_PASSWORD
+        password_ok = (check_password_hash(ADMIN_PASSWORD_HASH, request.form.get("pw", ""))
+                       if ADMIN_PASSWORD_HASH else ADMIN_PASSWORD and secrets.compare_digest(request.form.get("pw", ""), ADMIN_PASSWORD))
+        if (ADMIN_USERNAME and password_ok
                 and secrets.compare_digest(request.form.get("username", ""), ADMIN_USERNAME)
-                and secrets.compare_digest(request.form.get("pw", ""), ADMIN_PASSWORD)):
+                ):
             session["admin"] = True
             session["admin_identity"] = ADMIN_USERNAME
             ziel = request.args.get("next", "")
@@ -357,7 +423,7 @@ def admin_login():
     return render_template("login.html", titel=TITEL, fehler=fehler)
 
 
-@app.route("/admin/logout")
+@app.route("/admin/logout", methods=["POST"])
 def admin_logout():
     session.pop("admin", None)
     session.pop("admin_identity", None)
@@ -383,7 +449,7 @@ def admin():
                            ohne=[b for b in bezirke if b["anzahl"] == 0],
                            gesamt=len(alle), max_personen=MAX_PERSONEN, mail_test=mail.testbetrieb(),
                            mail_einstellungen=mail.einstellungen(),
-                           eltern_link=url_for("index", t=ELTERN_TOKEN, _external=True))
+                           eltern_link=BASE_URL + "/?t=" + quote(ELTERN_TOKEN, safe=""))
 
 
 def zurueck(bid: str | None = None):
@@ -537,6 +603,7 @@ def admin_export():
 
 @app.route("/admin/liste.pdf")
 @admin_required
+@bounded_pdf
 def admin_pdf():
     """Gesamtliste nach Bezirk sortiert, mit Kontaktdaten – zum Ausdrucken."""
     from reportlab.lib import colors
@@ -568,7 +635,7 @@ def admin_pdf():
         canvas.drawRightString(A4[0] - 15 * mm, 10 * mm, f"Seite {doc.page}")
         canvas.restoreState()
 
-    inhalt = [Paragraph(f"{TITEL} – Verkäuferliste", stil_titel),
+    inhalt = [Paragraph(f"{escape(TITEL)} – Verkäuferliste", stil_titel),
               Paragraph("nur fest zugeteilte Anmeldungen" if nur_bestaetigt
                         else "alle Anmeldungen, auch noch nicht bestätigte", stil_klein),
               Spacer(1, 4 * mm)]
@@ -583,8 +650,8 @@ def admin_pdf():
         for a in nach_bezirk.get(p["id"], []):
             trenner.append(len(zeilen))
             for i, person in enumerate(a["personen"]):
-                zeilen.append([Paragraph(person["name"], stil_zelle), person["klasse"], person["telefon"],
-                               Paragraph(person["email"], stil_zelle),
+                zeilen.append([Paragraph(escape(person["name"]), stil_zelle), person["klasse"], person["telefon"],
+                               Paragraph(escape(person["email"]), stil_zelle),
                                ("bestätigt" if a["status"] == "bestaetigt" else "offen") if i == 0 else ""])
         if len(zeilen) == 1:
             block.append(Paragraph("Noch keine Anmeldung.", stil_leer))
@@ -617,4 +684,4 @@ def admin_pdf():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5006)
+    app.run(host="127.0.0.1", debug=False, port=5006)

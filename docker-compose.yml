@@ -1,0 +1,49 @@
+services:
+  app:
+    build: {context: ., target: final}
+    image: losverkauf:0.1.0-dev
+    user: "10001:10001"
+    init: true
+    stop_grace_period: 40s
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    mem_limit: 384m
+    cpus: 1.0
+    pids_limit: 128
+    environment:
+      SECRET_KEY_FILE: /run/secrets/session-key
+      ELTERN_TOKEN_FILE: /run/secrets/parent-token
+      ADMIN_USERNAME_FILE: /run/secrets/admin-name
+      ADMIN_PASSWORD_HASH_FILE: /run/secrets/admin-hash
+      DB_PATH: /data/losverkauf.db
+      GEOJSON_PATH: /data/maps/bezirke.geojson
+      BASE_URL: ${BASE_URL:-http://localhost:5006}
+      PROXY_IPS: ${PROXY_IPS:-}
+      TILE_URL: ${TILE_URL:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_SICHERHEIT: ${SMTP_SICHERHEIT:-keine}
+      SMTP_TIMEOUT_S: "5"
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD_FILE: ${SMTP_PASSWORD_FILE:-}
+      MAIL_FROM: ${MAIL_FROM:-Losverkauf <noreply@example.invalid>}
+      MAIL_REPLY_TO: ${MAIL_REPLY_TO:-}
+    volumes:
+      - data:/data
+      - ${LOSVERKAUF_SECRETS_DIR:?private secret directory required}/session-key:/run/secrets/session-key:ro
+      - ${LOSVERKAUF_SECRETS_DIR:?private secret directory required}/parent-token:/run/secrets/parent-token:ro
+      - ${LOSVERKAUF_SECRETS_DIR:?private secret directory required}/admin-name:/run/secrets/admin-name:ro
+      - ${LOSVERKAUF_SECRETS_DIR:?private secret directory required}/admin-hash:/run/secrets/admin-hash:ro
+    ports: ["127.0.0.1:${LOSVERKAUF_PORT:-5006}:8000"]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+volumes:
+  data:

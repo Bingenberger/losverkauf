@@ -16,6 +16,7 @@ erscheint in der Anzeige, z. B. {"name": "Niederkasseler Straße", "zusatz": "s�
 Mit "ortsteil" im Bezirk werden nur Straßen innerhalb dieser Ortsteilgrenze (OSM) verwendet.
 """
 import heapq
+import os
 import json
 import math
 import re
@@ -28,8 +29,8 @@ from collections import defaultdict
 from pathlib import Path
 
 BASE = Path(__file__).parent
-CONFIG = BASE / "config" / "bezirke.json"
-OUT = BASE / "static" / "bezirke.geojson"
+CONFIG = Path(os.environ.get("BEZIRKE_CONFIG", BASE / "config" / "bezirke.json"))
+OUT = Path(os.environ.get("GEOJSON_PATH", BASE / "static" / "bezirke.geojson"))
 SERVER = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",

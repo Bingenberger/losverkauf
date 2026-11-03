@@ -1,9 +1,7 @@
 (function () {
   const map = L.map("map", { zoomControl: true });
-  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende',
-  }).addTo(map);
+  const tileUrl = document.querySelector("meta[name=tile-url]").content;
+  if (tileUrl) L.tileLayer(tileUrl, { maxZoom: 19, attribution: "OpenStreetMap-Mitwirkende" }).addTo(map);
 
   const FARBEN = { leer: "#E8731A", teil: "#E9B949", voll: "#9AA3AD", mein: "#1F2430" };
   const AUSWAHL = "#1766D6";
@@ -130,7 +128,7 @@
         const zurueckziehen = el("button", { type: "button", class: "leise" }, "zurückziehen");
         zurueckziehen.addEventListener("click", async () => {
           if (!confirm("Möchten Sie diese Anmeldung wirklich zurückziehen?")) return;
-          const r = await fetch("/api/anmeldung/" + e.edit_token, { method: "DELETE", credentials: "same-origin" });
+          const r = await fetch("/api/anmeldung/" + e.edit_token, { method: "DELETE", headers: {"X-CSRF-Token": document.querySelector("meta[name=csrf-token]").content}, credentials: "same-origin" });
           if (!r.ok) alert((await r.json().catch(() => ({}))).fehler || "Das hat leider nicht geklappt.");
           $("#danke").hidden = true;
           laden();
@@ -270,7 +268,7 @@
     try {
       const r = await fetch("/api/anmeldung", {
         method: "POST", credentials: "same-origin",
-        headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": document.querySelector("meta[name=csrf-token]").content }, body: JSON.stringify(body),
       });
       const j = await r.json();
       if (!r.ok) { $("#f-fehler").textContent = j.fehler || "Das hat leider nicht geklappt."; laden(); return; }

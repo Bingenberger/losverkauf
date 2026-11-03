@@ -12,7 +12,7 @@ EnvironmentFile=@ZIEL@/losverkauf.env
 Environment=TZ=Europe/Berlin
 # Nur lokal erreichbar – von außen geht es ausschließlich über nginx.
 # --threads: Mails werden nach der Anmeldung im Hintergrund verschickt.
-ExecStart=@ZIEL@/venv/bin/gunicorn --workers 2 --threads 4 --bind 127.0.0.1:@PORT@ app:app
+ExecStart=@ZIEL@/venv/bin/gunicorn --config gunicorn.conf.py --bind 127.0.0.1:@PORT@ app:app
 Restart=on-failure
 RestartSec=3
 # Neue Dateien (Datenbank, abgelegte Mails) nicht für alle lesbar

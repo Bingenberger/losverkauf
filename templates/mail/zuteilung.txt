@@ -25,3 +25,5 @@ Vielen Dank für Ihre Unterstützung!
 
 Mit freundlichen Grüßen
 Ihr Organisationsteam
+
+Mein Zugang: {{ parent_link }}&edit={{ anmeldung.edit_token }}

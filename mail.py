@@ -10,6 +10,7 @@ Umgebungsvariablen (siehe deploy/losverkauf.env.example):
   MAIL_REPLY_TO    optional: Antwortadresse
 """
 import os
+from los_runtime import value
 import secrets
 import smtplib
 import ssl
@@ -22,7 +23,7 @@ SMTP_HOST = os.environ.get("SMTP_HOST", "")
 SMTP_SICHERHEIT = os.environ.get("SMTP_SICHERHEIT", "starttls").lower()
 SMTP_PORT = int(os.environ.get("SMTP_PORT") or (465 if SMTP_SICHERHEIT == "ssl" else 587))
 SMTP_USER = os.environ.get("SMTP_USER", "")
-SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+SMTP_PASSWORD = value("SMTP_PASSWORD")
 MAIL_FROM = os.environ.get("MAIL_FROM") or SMTP_USER or "losverkauf@localhost"
 MAIL_REPLY_TO = os.environ.get("MAIL_REPLY_TO", "")
 
@@ -51,14 +52,15 @@ def senden(empfaenger: list[str], betreff: str, text: str, ablage: Path) -> str 
 
     if testbetrieb():
         ablage.mkdir(parents=True, exist_ok=True)
-        (ablage / f"{datetime.now():%Y%m%d-%H%M%S}-{secrets.token_hex(3)}.eml").write_bytes(bytes(msg))
+        with (ablage / f"{datetime.now():%Y%m%d-%H%M%S}-{secrets.token_hex(6)}.eml").open("xb") as stream:
+            stream.write(bytes(msg))
         return None
     try:
         kontext = ssl.create_default_context()
         if SMTP_SICHERHEIT == "ssl":
-            server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=kontext, timeout=30)
+            server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=kontext, timeout=int(os.environ.get("SMTP_TIMEOUT_S", "5")))
         else:
-            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30)
+            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=int(os.environ.get("SMTP_TIMEOUT_S", "5")))
         with server:
             if SMTP_SICHERHEIT == "starttls":
                 server.starttls(context=kontext)
@@ -67,4 +69,4 @@ def senden(empfaenger: list[str], betreff: str, text: str, ablage: Path) -> str 
             server.send_message(msg)
         return None
     except (smtplib.SMTPException, OSError) as e:
-        return f"{type(e).__name__}: {e}"
+        return type(e).__name__ + ": SMTP-Zustellung fehlgeschlagen"

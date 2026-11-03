@@ -5,3 +5,7 @@ deploy/deploy.conf
 backups/
 __pycache__/
 static/bezirke.geojson
+
+.private-secrets/
+__pycache__/
+.pytest_cache/

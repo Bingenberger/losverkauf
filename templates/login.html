@@ -2,7 +2,7 @@
 {% block body %}
 <main class="seite">
   <h1>{{ titel }} – Verwaltung</h1>
-  <form method="post" class="login">
+  <form method="post" class="login"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label>Persönlicher Benutzername <input name="username" autocomplete="username" required></label>
     <label>Passwort <input type="password" name="pw" autofocus></label>
     <button class="primaer">Anmelden</button>

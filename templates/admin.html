@@ -24,26 +24,26 @@
     {%- if a.mails.get('absprache') %} {{ mailstatus(a, 'absprache', 'Absprache') }}{% endif %}</div>
   <div class="a-aktionen">
     {% if a.status == 'offen' %}
-    <form method="post" action="{{ url_for('admin_bestaetigen', aid=a.id) }}">
+    <form method="post" action="{{ url_for('admin_bestaetigen', aid=a.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button class="knopf-ok">Bestätigen &amp; Zuteilung mailen</button>
     </form>
     {% else %}
-    <form method="post" action="{{ url_for('admin_mail_erneut', aid=a.id, art='zuteilung') }}">
+    <form method="post" action="{{ url_for('admin_mail_erneut', aid=a.id, art='zuteilung') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button class="leise">Zuteilung erneut mailen</button>
     </form>
     {% endif %}
     {% if not a.mails.get('eingang', {}).get('ok') %}
-    <form method="post" action="{{ url_for('admin_mail_erneut', aid=a.id, art='eingang') }}">
+    <form method="post" action="{{ url_for('admin_mail_erneut', aid=a.id, art='eingang') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button class="leise">Eingangsbestätigung mailen</button>
     </form>
     {% endif %}
-    <form method="post" action="{{ url_for('admin_verschieben', aid=a.id) }}">
+    <form method="post" action="{{ url_for('admin_verschieben', aid=a.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <select name="bezirk_id" onchange="if (this.value) this.form.submit()" aria-label="Verschieben nach">
         <option value="">verschieben …</option>
         {% for o in bezirke if o.id != a.bezirk_id %}<option value="{{ o.id }}">{{ o.name }} ({{ o.anzahl }}/{{ o.max_effektiv }})</option>{% endfor %}
       </select>
     </form>
-    <form method="post" action="{{ url_for('admin_loeschen', aid=a.id) }}" onsubmit="return confirm('Anmeldung Nr. {{ a.id }} wirklich löschen?')">
+    <form method="post" action="{{ url_for('admin_loeschen', aid=a.id) }}" onsubmit="return confirm('Anmeldung Nr. {{ a.id }} wirklich löschen?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button class="leise gefahr">löschen</button>
     </form>
   </div>
@@ -65,7 +65,7 @@
       <a href="{{ url_for('admin_pdf', nur='bestaetigt') }}">PDF-Liste (nur bestätigte)</a>
       <a href="{{ url_for('admin_export') }}">CSV exportieren</a>
       <a href="{{ url_for('index') }}" target="_blank">Elternansicht</a>
-      <a href="{{ url_for('admin_logout') }}">Abmelden</a>
+      <form method="post" action="{{ url_for('admin_logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button>Abmelden</button></form>
     </p>
     <p class="elternlink">Elternlink: <code>{{ eltern_link }}</code></p>
     {% if mail_test %}
@@ -86,7 +86,7 @@
       <tr><th>Absender</th><td>{{ m.absender }}</td></tr>
       <tr><th>Antwort an</th><td>{{ m.antwort_an or '–' }}</td></tr>
     </table>
-    <form method="post" action="{{ url_for('admin_testmail') }}" class="inline">
+    <form method="post" action="{{ url_for('admin_testmail') }}" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input name="an" type="email" required placeholder="empfaenger@example.de" size="30" aria-label="Empfänger der Test-Mail">
       <button>Test-Mail senden</button>
     </form>
@@ -121,7 +121,7 @@
 
     {% if b.anmeldungen %}
     <form method="post" action="{{ url_for('admin_absprache', bid=b.id) }}" class="inline absprache"
-          onsubmit="return confirm('Absprache-Mail an alle Angemeldeten in {{ b.name }} verschicken? Namen und E-Mail-Adressen werden dabei untereinander bekannt.')">
+          onsubmit="return confirm('Absprache-Mail an alle Angemeldeten in {{ b.name }} verschicken? Namen und E-Mail-Adressen werden dabei untereinander bekannt.')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button>Absprache-Mail an den Bezirk</button>
       <label><input type="checkbox" name="auch_offene"> auch noch nicht bestätigte Anmeldungen</label>
       <span class="leise-text">Alle sehen Namen und E-Mail-Adressen der anderen – Telefonnummern werden nicht weitergegeben.</span>
@@ -130,7 +130,7 @@
 
     <details>
       <summary>Manuell anmelden / Bezirk einstellen</summary>
-      <form method="post" action="{{ url_for('admin_anmeldung_neu') }}" class="manuell">
+      <form method="post" action="{{ url_for('admin_anmeldung_neu') }}" class="manuell"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="bezirk_id" value="{{ b.id }}">
         {% for i in range(1, max_personen + 1) %}
         <div class="zeile">
@@ -143,7 +143,7 @@
         {% endfor %}
         <button>Anmeldung anlegen</button>
       </form>
-      <form method="post" action="{{ url_for('admin_bezirk', bid=b.id) }}" class="inline">
+      <form method="post" action="{{ url_for('admin_bezirk', bid=b.id) }}" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label>Max. Anmeldungen <input name="max_override" type="number" min="0" size="3" value="{{ b.max_effektiv }}"></label>
         <label><input type="checkbox" name="gesperrt" {% if b.gesperrt %}checked{% endif %}> für Eltern sperren</label>
         <button>Speichern</button>

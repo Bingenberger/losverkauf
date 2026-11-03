@@ -68,6 +68,6 @@
   </section>
 </aside>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}" crossorigin=""></script>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 {% endblock %}

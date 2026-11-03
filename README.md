@@ -1,143 +1,77 @@
-# Losverkauf St. Martin – Bezirkswahl auf der Karte
+# Losverkauf – eigenständige Schul-App
 
-Eltern sehen die Verkaufsbezirke auf einer OpenStreetMap-Karte mit der aktuellen Belegung
-(z. B. 1/2). Erstes Antippen zeigt einen Bezirk an, „Anmelden“ öffnet das Formular.
-Eine Anmeldung umfasst 1–3 Personen (Name, Klasse, Telefon, E-Mail), die gemeinsam verkaufen,
-und belegt einen Platz im Bezirk. Bezirke ohne Anmeldung sind orange, teilweise belegte gelb,
-volle grau. Offene Anmeldungen lassen sich im selben Browser wieder zurückziehen.
+Eltern wählen einen Verkaufsbezirk auf einer lokalen Karte und melden 1–3
+Personen an. Eine Anmeldung belegt einen Platz. Der persönliche Verwaltungszugang
+bestätigt Zuordnungen und bietet Mail, CSV und PDF an.
 
-Ablauf: Anmeldung → Eingangsbestätigung per Mail an alle Personen → Bestätigung in `/admin`
-→ Mail mit der festen Zuteilung.
+Der geprüfte Stand mit Migration, Secrets, Mailqueue, Backup und Grenzen steht
+in [PLATFORM.md](PLATFORM.md).
 
-## Aufbau
-- `config/bezirke.json` – Bezirke: ID, Name, Straßen, Obergrenze (`max`)
-- `import_streets.py` – holt die Straßengeometrien per Overpass-API und schreibt `static/bezirke.geojson`
-- `app.py` – Flask-App (Eltern-Seite, JSON-API, Admin)
-- `mail.py` – Mailversand per SMTP (Testbetrieb ohne SMTP: Mails als Datei unter `data/mails/`)
-- `templates/mail/` – Mailtexte (`eingang.txt`, `zuteilung.txt`; erste Zeile = Betreff), frei anpassbar
-- `templates/`, `static/` – Frontend (Leaflet 1.9)
-- `deploy/` – Deploy-Skript (`deploy.sh`), Server-Einrichtung, Vorlagen für systemd, nginx und `losverkauf.env`
+## Standalone
 
-## Lokal entwickeln
-```bash
-python3 -m venv venv && venv/bin/pip install -r requirements.txt
-nano config/bezirke.json          # Bezirke pflegen, Straßennamen exakt wie in OSM
-python3 import_streets.py         # → static/bezirke.geojson; meldet nicht gefundene Straßen
-venv/bin/python app.py            # → http://127.0.0.1:5006 (ohne ELTERN_TOKEN ist die Seite offen)
+```sh
+python3 -m venv .venv
+.venv/bin/pip install --require-hashes -r requirements.lock
+.venv/bin/python prepare_secrets.py .private-secrets --admin-user PERSOENLICHER_NAME
+export LOSVERKAUF_SECRETS_DIR="$PWD/.private-secrets"
+docker compose build
+docker compose up -d --no-build
+docker compose run --rm --no-deps app python -m los_migrate
 ```
 
-## Server-Deploy (rsync + ssh)
+Das Passwort wird ausschließlich am lokalen Terminal abgefragt.
+Ohne explizite Migration bleibt Readiness 503. Danach unter
+http://localhost:5006/admin anmelden und eigene Bezirksdaten bereitstellen.
+Die Session-/Elternschlüssel werden weder ausgegeben noch bei Wiederholung ersetzt.
+Der Elternlink steht in der geschützten Verwaltung.
 
-Alles läuft über `deploy/deploy.sh` vom eigenen Rechner aus, im Projektordner.
+BASE_URL passend zum tatsächlichen Proxy beziehungsweise Port setzen;
+bei HTTPS setzt die App sichere Cookies automatisch.
+Nur Host-Loopback wird veröffentlicht. Mehr zum optionalen Proxybetrieb und
+den bestehenden Env-Namen in PLATFORM.md.
 
-### Voraussetzungen
-- Server mit Ubuntu oder Debian, SSH-Zugang mit einem Benutzer mit sudo-Rechten (am besten per SSH-Schlüssel)
-- DNS-Eintrag der Domain (z. B. `lose.gsndk.de`) zeigt auf den Server, Ports 80 und 443 sind erreichbar
-- lokal: `rsync`, `ssh` und eine erzeugte `static/bezirke.geojson`
+## Bezirksdaten und Browserassets
 
-### Ersteinrichtung
-```bash
-cp deploy/deploy.conf.example deploy/deploy.conf
-nano deploy/deploy.conf           # SERVER, DOMAIN, CERTBOT_EMAIL (ggf. PORT, TLS, SUDO_OHNE_PASSWORT)
-deploy/deploy.sh einrichten
-```
-Das Skript
-1. legt `/opt/losverkauf` an und überträgt den Code per rsync,
-2. installiert Python, nginx und certbot,
-3. legt die Python-Umgebung an und installiert die Abhängigkeiten,
-4. erzeugt `/opt/losverkauf/losverkauf.env` mit zufälligem `SECRET_KEY`, Elterntoken und Admin-Passwort
-   (nur root lesbar; das Passwort wird **einmal** angezeigt),
-5. richtet den systemd-Dienst `losverkauf` ein (Gunicorn als `www-data`, nur auf `127.0.0.1:5010`),
-6. richtet die nginx-Site ein und holt per certbot ein Let's-Encrypt-Zertifikat (inkl. Weiterleitung http → https),
-7. zeigt am Ende Elternlink und Verwaltungsadresse.
+Das Image enthält eine leere GeoJSON-Datei unter /data/maps/bezirke.geojson.
+Keine realen schulischen Bezirke, PDF-Vorlagen oder Kontaktdaten werden eingebaut.
+Eigene Daten kontrolliert in diesen persistenten Pfad übernehmen.
 
-Die Einrichtung kann erneut ausgeführt werden. Eine vorhandene `losverkauf.env` und eine vorhandene
-nginx-Site werden dabei nicht überschrieben.
+import_streets.py kann auf ausdrücklichen Aufruf Geometrien aus Overpass holen.
+BEZIRKE_CONFIG bestimmt die eigene Eingabekonfiguration, GEOJSON_PATH das Ausgabeziel.
+Kein Netzwerkimport beim Start oder Image-Build.
 
-Danach den Mailversand eintragen (sonst Testbetrieb, Mails nur unter `data/mails/`):
-```bash
-ssh server
-sudo nano /opt/losverkauf/losverkauf.env    # SMTP_HOST, SMTP_PORT, SMTP_SICHERHEIT, SMTP_USER, SMTP_PASSWORD, MAIL_FROM, MAIL_REPLY_TO
-sudo systemctl restart losverkauf
-```
-In `/admin` verschwindet dann der Hinweis „Testbetrieb“.
-
-### Updates
-```bash
-python3 import_streets.py         # nur wenn sich Bezirke geändert haben
-deploy/deploy.sh
-```
-Ablauf: lokale Prüfung → Sicherung der Datenbank auf dem Server (`data/backups/`, die letzten 30 bleiben) →
-rsync (auf dem Server gelöschte Dateien werden entfernt; `venv/`, `data/`, `losverkauf.env` bleiben unangetastet,
-siehe `deploy/rsync-exclude`) → Abhängigkeiten → Neustart → Prüfung über `/healthz`.
-
-### Weitere Befehle
-```bash
-deploy/deploy.sh backup           # Datenbank sichern und nach ./backups/ herunterladen
-deploy/deploy.sh status           # Dienststatus
-deploy/deploy.sh logs             # Log live verfolgen (Strg+C)
-```
-Neustart, Status und Log brauchen sudo. Mit `SUDO_OHNE_PASSWORT=ja` legt die Einrichtung eine Regel in
-`/etc/sudoers.d/losverkauf` an, die genau diese Befehle ohne Passwort erlaubt – sonst fragt sudo jeweils nach.
-
-### nginx als Reverse-Proxy
-```
-Browser ──https──▶ nginx :443 ──http──▶ Gunicorn 127.0.0.1:5010 (Benutzer www-data) ──▶ data/losverkauf.db
-                   │ TLS-Zertifikat (certbot)
-                   │ /static/ direkt aus /opt/losverkauf/static
-                   │ Rate-Limit für /api/anmeldung und /admin/login
-```
-- Gunicorn ist nur lokal erreichbar; von außen geht jede Anfrage über nginx.
-  nginx gibt Schema und Host per `X-Forwarded-*` weiter, die App übernimmt sie (`ProxyFix`), damit Links
-  und der Elternlink in `/admin` mit `https://…` erzeugt werden.
-- Dateien auf dem Server:
-
-  | Datei | Inhalt |
-  |---|---|
-  | `/etc/nginx/sites-available/losverkauf` (+ Link in `sites-enabled`) | nginx-Site, Vorlage `deploy/nginx-losverkauf.conf` |
-  | `/etc/systemd/system/losverkauf.service` | Dienst, Vorlage `deploy/losverkauf.service` (wird bei jeder Einrichtung aktualisiert) |
-  | `/opt/losverkauf/losverkauf.env` | Geheimnisse und Einstellungen (root, 600) |
-  | `/opt/losverkauf/data/` | Datenbank, Sicherungen, abgelegte Mails (www-data, Gruppe des Deploy-Benutzers) |
-  | `/var/log/nginx/losverkauf.access.log`, `.error.log` | nginx-Logs; App-Log über `journalctl -u losverkauf` |
-
-- nginx-Site ändern: `sudo nano /etc/nginx/sites-available/losverkauf`, dann
-  `sudo nginx -t && sudo systemctl reload nginx`. Andere Sites auf dem Server bleiben unberührt.
-- Zertifikat: certbot verlängert automatisch (`certbot.timer`); Test mit `sudo certbot renew --dry-run`.
-- Gibt es auf dem Server schon ein Zertifikat (z. B. Wildcard für `*.gsndk.de`): `TLS=keine` setzen, nach der
-  Einrichtung in der Site `listen 443 ssl;` plus `ssl_certificate`/`ssl_certificate_key` ergänzen, eine
-  Weiterleitung von Port 80 einrichten und in `losverkauf.env` `SESSION_COOKIE_SECURE=1` setzen.
-- Port 5010 schon belegt? `PORT` in `deploy/deploy.conf` ändern – die Einrichtung prüft das vorher.
+Leaflet 1.9.4 liegt lokal samt Lizenz und Hashinventar unter static/vendor/leaflet.
+TILE_URL bleibt standardmäßig leer; es gibt keine automatische Anfrage an einen
+Kachelserver. Ein eigener Dienst kann über einen Same-Origin-Pfad ergänzt werden.
+Die Rechte und Bedingungen eigener Karten-/OSM-Daten gesondert prüfen.
 
 ## Betrieb
-- Elternlink: `https://lose.gsndk.de/?t=<ELTERN_TOKEN>` – steht auch oben in `/admin`.
-  Nach dem ersten Aufruf wird das Token in einem Cookie gehalten, die URL wird bereinigt.
-- Admin unter `/admin` (Passwort `ADMIN_PASSWORD`): oben die noch zu bestätigenden Anmeldungen,
-  „Bestätigen & Zuteilung mailen“ verschickt die feste Zuteilung. Pro Anmeldung ist sichtbar, ob
-  Eingangs- und Zuteilungsmail angekommen sind (bei Fehlern mit Meldung und „erneut mailen“).
-  Außerdem: manuell anmelden, verschieben (setzt die Bestätigung zurück), löschen,
-  Obergrenze je Bezirk ändern, Bezirk sperren, Test-Mail verschicken.
-- Listen: **PDF** („PDF-Liste“, nach Bezirk sortiert, mit Straßen und Kontaktdaten – zum Ausdrucken;
-  wahlweise alle oder nur die bestätigten Anmeldungen) und **CSV** (eine Zeile pro Person, Semikolon,
-  öffnet direkt in Excel/LibreOffice).
-- Bestätigte Anmeldungen können Eltern nicht mehr selbst zurückziehen (Hinweis: auf die Mail antworten).
-- Neues Jahr: auf dem Server `data/losverkauf.db` löschen (vorher `deploy/deploy.sh backup`), in
-  `losverkauf.env` ein neues `ELTERN_TOKEN` setzen, `sudo systemctl restart losverkauf`.
 
-## Hinweise
-- Straßen, die in OSM anders heißen (z. B. „Str.“ vs. „Straße“), werden beim Import gemeldet.
-- `ortsteil` im Bezirk: Es werden nur Straßen innerhalb dieser Ortsteilgrenze aus OSM verwendet
-  (wichtig, wenn ein Straßenname in mehreren Ortsteilen vorkommt).
-- Feldwege (`track`, `path` …) einer Straße werden weggelassen, solange die Straße auch normale Abschnitte hat.
-- Lange Straßen lassen sich aufteilen: statt des Namens einen Abschnitt zwischen zwei Querstraßen angeben,
-  z. B. `{"name": "Hauptstraße", "von": "Weidenstraße", "bis": "Pastor-Grimm-Straße"}`.
-  Auf der Karte erscheint nur dieser Abschnitt, in der Liste „Hauptstraße (Weidenstraße – Pastor-Grimm-Straße)“.
-  Statt einer Querstraße geht auch `"Bahn"` (Bahnübergang). Optional `"zusatz"` für die Anzeige,
-  z. B. `{"name": "Niederkasseler Straße", "zusatz": "südliche Seite"}`.
-  Querstraßen, die die Straße nicht treffen, meldet der Import.
-- Bezirke sind als Straßenzüge (Linien) dargestellt, nicht als Flächen – das passt zur Straßenliste
-  und lässt sich ohne Zeichnen pflegen.
-- Leaflet wird von unpkg.com geladen. Für einen komplett externen-frei betriebenen Dienst
-  `leaflet.js`/`leaflet.css` nach `static/` kopieren und die beiden Links in `templates/base.html`
-  und `templates/index.html` anpassen. Die Kartenkacheln kommen von openstreetmap.org
-  (Nutzungsbedingungen: für eine Schule in diesem Umfang unproblematisch; Datenschutzhinweis ergänzen).
-- Daten: Name, Klasse, Telefon, E-Mail liegen nur in der lokalen SQLite. Nach dem Martinszug löschen.
+- Die Anmeldung und ihre Eingangsbestätigung werden atomar gespeichert.
+  Die begrenzte Mailqueue übersteht Neustarts; SMTP kann bei einer Absturzrace
+  doppelt zustellen. Admin-Mailaktionen sind teilweise weiterhin synchron.
+- Ohne SMTP_HOST werden Mails privat unter /data/mails abgelegt.
+  Im Integrationstest ausschließlich lokaler Sink, kein externer Upstream.
+- Elternlinks bleiben tokengebunden. Individuelle Maillinks nehmen mit dem
+  bestehenden edit_token den gleichen Besitz auf; Tokens werden nicht rotiert.
+- Verwaltungsformulare und JSON-Schreibaufrufe benötigen CSRF; Logout ist POST.
+  Schreibende API-Clients müssen die Nonce aus der Elternseite übernehmen.
+- DB-Migration ausschließlich mit pausierten Writern über los_migrate.
+  Unbekannte Bestandsfelder werden nicht still verworfen.
+- Sicherung über SQLite-.backup-API plus Maps-/Mailverzeichnisse und private
+  Konfiguration/Schlüssel. Kein Kopieren der laufenden DBdatei.
+- Stop und Deaktivierung behalten Volumes. Ein Jahreswechsel oder Löschen aller
+  Daten ist eine gesonderte Aktion, kein automatischer Deployment-Schritt.
+
+## Prüfung und native Altinstallation
+
+Die Plattform liefert reproduzierbare Laufzeit-, Standalone-, Restore- und
+Domainprüfungen mit synthetischen Daten. Browser-, Last-, ARM64- und öffentliche
+DNS-/ACME-Abnahme stehen aus. Keine Produktionsfreigabe oder zentrale Sperrung.
+
+Die Vorlagen unter deploy/ sind Herkunftsmaterial des nativen Betriebs. Die
+automatische Servereinrichtung ist für den neuen Migrations-/Secretvertrag nicht
+abgenommen. Bestehende produktive Dienste nicht blind mit ihr überschreiben.
+Ein nativer Betrieb benötigt ebenfalls feste Schlüssel, persönliche Adminidentität,
+BASE_URL, explizite Proxyadressen, Migration und die Gunicorn-Konfiguration mit
+genau einem Dispatcher. Keine Produktivumstellung wurde ausgeführt.

@@ -25,3 +25,5 @@ Bei Fragen antworten Sie gern auf diese E-Mail.
 
 Mit freundlichen Grüßen
 Ihr Organisationsteam
+
+Elternzugang: {{ parent_link }}
