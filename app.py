@@ -55,7 +55,7 @@ DB_PATH = Path(os.environ.get("DB_PATH", BASE / "data" / "losverkauf.db"))
 TITEL = os.environ.get("TITEL", "Losverkauf St. Martin")
 GEOJSON = Path(os.environ.get("GEOJSON_PATH", BASE / "static" / "bezirke.geojson"))
 TILE_URL = os.environ.get("TILE_URL", "")
-if TILE_URL and not TILE_URL.startswith("/"):
+if TILE_URL and (not TILE_URL.startswith("/") or TILE_URL.startswith("//") or "\\" in TILE_URL):
     raise RuntimeError("TILE_URL must use a configured same-origin tile service")
 _pdf_slot = threading.BoundedSemaphore(1)
 MAX_PERSONEN = 3

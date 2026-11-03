@@ -117,7 +117,7 @@ und Schlüssel bereitstellen und ohne erneute Migration starten.
 Image-Rollback setzt keine Datenbank zurück. Verschlüsseltes Offsitebackup,
 Secretstore-Gesamtbackup, Retention und Alarmierung sind noch offen.
 
-Geprüft: 14 isolierte Laufzeit-/Negativtests, eigenständiger Compose-Start,
+Geprüft: 16 isolierte Laufzeit-/Negativtests, eigenständiger Compose-Start,
 8 gleichzeitige Anmeldungen auf 1 Platz, Mail-Sink, Queue-Erhalt bei Neustart,
 kombinierter Restore mit gleichen Tokens/IDs, lokales TLS, Domainwechsel mit
 erzwungenem Rückfall und zwei No-op-Läufe. Keine Browserautomation,

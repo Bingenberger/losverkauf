@@ -194,3 +194,11 @@ def test_unknown_legacy_columns_refuse_conversion_without_data_loss(runtime):
     with sqlite3.connect(app.DB_PATH) as db:
         assert db.execute("SELECT id,future_value FROM wuensche").fetchall()==[(7,'keep me')]
         assert db.execute("SELECT name FROM sqlite_master WHERE name='anmeldungen'").fetchall()==[]
+
+
+@pytest.mark.parametrize("tile",["//forbidden.invalid/tiles/{z}/{x}/{y}.png","/\\\\forbidden.invalid/tiles"])
+def test_tile_template_cannot_escape_same_origin(tile):
+    env=os.environ.copy()
+    env.update(SECRET_KEY="synthetic-session-key-fixture-0123456789",ELTERN_TOKEN="synthetic-parent-token-fixture-0123456789",TILE_URL=tile)
+    result=subprocess.run([sys.executable,"-c","import app"],env=env,capture_output=True,timeout=10)
+    assert result.returncode!=0
