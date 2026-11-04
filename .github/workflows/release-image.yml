@@ -1,0 +1,56 @@
+# Managed by the Schulplattform repository (templates/release/app-release-workflow.yml).
+# Builds the amd64 release image(s) of a version tag and publishes them to GHCR
+# with SBOM and provenance attestations. Uses only the runner's Docker CLI; no
+# third-party actions. The standalone docker-compose.yml is unaffected.
+name: Release image
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout tagged commit
+        run: |
+          set -eu
+          git init -q src
+          git -C src fetch -q --depth=1 "https://github.com/${GITHUB_REPOSITORY}.git" "${GITHUB_SHA}"
+          git -C src checkout -q FETCH_HEAD
+      - name: Build and publish
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGES: "losverkauf=final"
+        run: |
+          set -eu
+          cd src
+          version="${GITHUB_REF_NAME#v}"
+          owner="$(printf '%s' "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          printf '%s' "${REGISTRY_TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+          docker buildx create --use --name release --driver docker-container >/dev/null
+          : > ../digests.txt
+          for entry in ${IMAGES}; do
+            name="${entry%%=*}"; target="${entry#*=}"
+            set -- --platform linux/amd64 --provenance=mode=max --sbom=true \
+              --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+              --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+              --label "org.opencontainers.image.version=${version}" \
+              --tag "ghcr.io/${owner}/${name}:${version}" \
+              --metadata-file "../meta-${name}.json" --push
+            if [ "${target}" != "-" ]; then set -- "$@" --target "${target}"; fi
+            docker buildx build "$@" .
+            digest="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["containerimage.digest"])' "../meta-${name}.json")"
+            printf 'ghcr.io/%s/%s:%s@%s\n' "${owner}" "${name}" "${version}" "${digest}" >> ../digests.txt
+          done
+          { echo '### Published images'; echo; echo '```'; cat ../digests.txt; echo '```'; } >> "${GITHUB_STEP_SUMMARY}"
+          docker logout ghcr.io
