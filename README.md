@@ -7,6 +7,38 @@ bestätigt Zuordnungen und bietet Mail, CSV und PDF an.
 Der geprüfte Stand mit Migration, Secrets, Mailqueue, Backup und Grenzen steht
 in [PLATFORM.md](PLATFORM.md).
 
+<!-- schulplattform:installation -->
+## Installation
+
+### Im Rahmen der Schulplattform
+
+Empfohlen für den Schulserver: Die [Schulplattform](https://github.com/Bingenberger/schulplattform) installiert diese App zusammen mit den
+anderen Schul-Apps auf einem leeren Ubuntu-24.04-Server, mit eigener Subdomain, TLS-Zertifikat, Mailversand,
+Sicherung und Dashboard. Sie verwendet das signierte Release-Image `ghcr.io/bingenberger/losverkauf`
+und die unveränderte `docker-compose.yml` dieses Repositorys plus eine Override-Datei.
+
+1. In der Plattformkonfiguration (`./install.sh configure` bzw. `/etc/schulplattform/platform.toml`)
+   unter `[apps.losverkauf]` `enabled = true` und den Hostnamen setzen, z. B. `lose.ihre-schule.de`,
+   und beim DNS-Provider einen A-Eintrag auf den Server anlegen.
+2. `./install.sh apply …` installiert die App. Migration, Proxy, Zertifikat und Sicherung übernimmt die Plattform.
+3. `./install.sh app-setup losverkauf` legt den persönlichen Verwaltungszugang an (Name und Passwort am Terminal; gespeichert wird nur ein Werkzeug-Hash).
+4. Daten vom bisherigen Server übernehmen: `./install.sh import losverkauf …` nach dem
+   [Umzugs-Runbook](https://github.com/Bingenberger/schulplattform/blob/main/docs/betrieb/umzug.md).
+
+### Standalone mit Docker Compose
+
+Ohne Plattform, z. B. zum Ausprobieren oder für einen eigenen Server mit eigenem Proxy.
+Benötigt Docker Engine mit Compose v2 (amd64). Die App lauscht danach nur auf `http://127.0.0.1:5006`.
+
+Siehe Abschnitt **„Standalone“** unten (`prepare_secrets.py`, Build, `python -m los_migrate`). Die Bezirkskarte gehört nach `/data/maps/bezirke.geojson`.
+
+Statt selbst zu bauen, kann das veröffentlichte Image verwendet werden (dann `docker compose build` weglassen):
+
+```sh
+docker pull ghcr.io/bingenberger/losverkauf:0.1.0 && docker tag ghcr.io/bingenberger/losverkauf:0.1.0 losverkauf:0.1.0-dev
+```
+<!-- /schulplattform:installation -->
+
 ## Standalone
 
 ```sh
