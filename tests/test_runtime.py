@@ -167,7 +167,7 @@ def test_all_browser_assets_local_and_private_headers(installed):
     assert "https://unpkg.com" not in response.text
     assert 'name="tile-url" content=""' in response.text
     assert client.get("/static/vendor/leaflet/leaflet.js").status_code==200
-    assert response.headers["Referrer-Policy"]=="no-referrer"
+    assert response.headers["Referrer-Policy"]=="same-origin"
     assert response.headers["Cache-Control"]=="private, no-store"
 
 
@@ -202,3 +202,15 @@ def test_tile_template_cannot_escape_same_origin(tile):
     env.update(SECRET_KEY="synthetic-session-key-fixture-0123456789",ELTERN_TOKEN="synthetic-parent-token-fixture-0123456789",TILE_URL=tile)
     result=subprocess.run([sys.executable,"-c","import app"],env=env,capture_output=True,timeout=10)
     assert result.returncode!=0
+
+
+def test_admin_login_form_post_as_a_browser_sends_it(installed):
+    # Real server: with "Referrer-Policy: no-referrer" the browser sent "Origin: null" and the login
+    # form was rejected with 403. Same-origin form posts now carry the real origin.
+    app=installed
+    client=app.app.test_client()
+    nonce=csrf(client)
+    assert client.get("/admin/login").headers["Referrer-Policy"]=="same-origin"
+    form={"csrf_token":nonce,"username":"synthetic.operator","pw":"synthetic-password"}
+    assert client.post("/admin/login",data=form,headers={"Origin":"http://localhost"}).status_code==302
+    assert client.post("/admin/login",data=form,headers={"Origin":"null"}).status_code==403

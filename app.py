@@ -277,7 +277,9 @@ def contract_guard():
 
 @app.after_request
 def private_responses(response):
-    response.headers["Referrer-Policy"] = "no-referrer"
+    # same-origin, not no-referrer: with no-referrer browsers send "Origin: null" on form posts,
+    # which the origin check below rejects (real server: admin login answered 403).
+    response.headers["Referrer-Policy"] = "same-origin"
     response.headers["Cache-Control"] = "private, no-store"
     response.headers["X-Content-Type-Options"] = "nosniff"
     return response
